@@ -101,7 +101,7 @@ contract JustArtMarket is Ownable, ReentrancyGuard {
     }
 
     /// @dev allow users to add an item to the marketplace
-    function addNewItem(
+    function listNewItem(
         string calldata _name,
         string calldata _description,
         string calldata _image,
@@ -132,7 +132,6 @@ contract JustArtMarket is Ownable, ReentrancyGuard {
     function buyItem(uint _itemId)
         external
         payable
-        exist(_itemId)
         checkIfListed(_itemId)
         nonReentrant
     {
@@ -178,6 +177,23 @@ contract JustArtMarket is Ownable, ReentrancyGuard {
         emit ItemSold(msg.sender, _Item.name, _itemId, _Item.price);
     }
 
+    /// @dev allow users to unlist an item
+    function unlistItem(uint _itemId)
+        external
+        checkIfItemOwner(_itemId)
+        checkIfListed(_itemId)
+    {
+        // get item from storage
+        Item storage _Item = Items[_itemId];
+
+        //update location, price and listed parameter
+        _Item.isItemListed = false;
+        _Item.price = 0;
+        //add new transaction history
+        newHistory(_itemId, Type.REMOVE);
+        emit ItemRemoved(msg.sender, _Item.name, _itemId);
+    }
+
     /// @dev allow users to relist an item
     function relistItem(
         uint _itemId,
@@ -201,23 +217,6 @@ contract JustArtMarket is Ownable, ReentrancyGuard {
         emit ItemRelisted(msg.sender, _Item.name, _itemId, _Item.price);
     }
 
-    /// @dev allow users to unlist an item
-    function unlistItem(uint _itemId)
-        external
-        exist(_itemId)
-        checkIfItemOwner(_itemId)
-        checkIfListed(_itemId)
-    {
-        // get item from storage
-        Item storage _Item = Items[_itemId];
-
-        //update location, price and listed parameter
-        _Item.isItemListed = false;
-        _Item.price = 0;
-        //add new transaction history
-        newHistory(_itemId, Type.REMOVE);
-        emit ItemRemoved(msg.sender, _Item.name, _itemId);
-    }
 
     /// @dev allows the contract's owner to change the market fee
     /// @notice fee percentage can't be higher than 10%
@@ -279,10 +278,9 @@ contract JustArtMarket is Ownable, ReentrancyGuard {
     function getItemFee(uint _itemId)
         public
         view
-        exist(_itemId)
+        checkiflisted(_itemId)
         returns (uint)
     {
-        require(Items[_itemId].isItemListed, "Item isn't listed");
         // to avoid overflow/underflow issues, price is divided by 100 to get the feeAmount per each percent
         uint256 feePerPecent = Items[_itemId].price / 100;
         return feePerPecent * marketFeePercentage;
